@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visionneuse PDF Sécurisée</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #323639;
+            font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            color: #e8eaed;
+            overflow: hidden;
+        }
+
+        /* Barre d'outils type Google Chrome PDF */
+        .pdf-header {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            height: 48px;
+            background-color: #323639;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+            z-index: 100;
+        }
+
+        .doc-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: #f1f3f4;
+        }
+
+        .main-container {
+            text-align: center;
+            width: 90%;
+            max-width: 450px;
+            background: #202124;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        /* Spinner de chargement Google */
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(66, 133, 244, 0.1);
+            border-top: 3px solid #4285f4;
+            border-radius: 50%;
+            animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+            margin: 0 auto 25px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .progress-container {
+            width: 100%;
+            height: 4px;
+            background-color: #3c4043;
+            border-radius: 2px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background-color: #8ab4f8;
+            transition: width 0.3s ease-out;
+        }
+
+        #loading-msg {
+            font-size: 18px;
+            margin-bottom: 10px;
+            color: #ffffff;
+        }
+
+        #status-detail {
+            font-size: 13px;
+            color: #9aa0a6;
+            line-height: 1.5;
+        }
+
+        .btn-reload {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #8ab4f8;
+            color: #202124;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: none; /* Caché au début */
+        }
+
+        .btn-reload:hover {
+            background-color: #aecbfa;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="pdf-header">
+        <div class="doc-title" id="file-name">Chargement du document...</div>
+    </div>
+
+    <div class="main-container">
+        <div class="spinner"></div>
+        <div id="loading-msg">Initialisation du flux...</div>
+        
+        <div class="progress-container">
+            <div id="progress-bar" class="progress-bar"></div>
+        </div>
+
+        <div id="status-detail">Connexion aux serveurs distants (0.0%)</div>
+
+        <div id="reload-section">
+            <a href="javascript:void(0)" onclick="location.reload()" id="btn-reload" class="btn-reload">Actualiser maintenant</a>
+        </div>
+    </div>
+
+    <script>
+        // 1. On personnalise le nom du fichier via l'URL (?file=Rapport.pdf)
+        const params = new URLSearchParams(window.location.search);
+        const fileName = params.get('file') || "Rapport_Final_Projet.pdf";
+        document.getElementById('file-name').innerText = fileName;
+
+        // 2. Variables de contrôle
+        let progress = 0;
+        const bar = document.getElementById('progress-bar');
+        const status = document.getElementById('status-detail');
+        const msg = document.getElementById('loading-msg');
+        const btn = document.getElementById('btn-reload');
+
+        // Vérifier si c'est déjà un deuxième essai (actualisation)
+        const isReloaded = sessionStorage.getItem('isReloaded');
+
+        function updateLoading() {
+            const interval = setInterval(() => {
+                if (progress < 99) {
+                    // Progression de plus en plus lente
+                    let increment = (100 - progress) / 20;
+                    progress += Math.random() * increment;
+                    
+                    if (progress > 99) progress = 99;
+
+                    bar.style.width = progress + "%";
+                    status.innerText = `Synchronisation avec le cloud sécurisé (${progress.toFixed(1)}%)`;
+
+                    // Changement de messages
+                    if (progress > 40 && progress < 80) {
+                        msg.innerText = "Récupération des données...";
+                    } else if (progress >= 80) {
+                        msg.innerText = isReloaded ? "Finalisation (deuxième tentative)..." : "On y est presque ! Juste quelques secondes...";
+                    }
+                } else {
+                    // BLOQUÉ À 99%
+                    clearInterval(interval);
+                    
+                    // On marque que l'utilisateur a déjà essayé une fois
+                    sessionStorage.setItem('isReloaded', 'true');
+
+                    setTimeout(() => {
+                        msg.innerHTML = "<span style='color:#f28b82'>L'affichage prend plus de temps que prévu...</span>";
+                        status.innerHTML = "Si l'attente est trop longue, veuillez <strong>actualiser la page</strong> pour relancer le cache du navigateur.";
+                        btn.style.display = "inline-block";
+                        status.style.animation = "pulse 2s infinite";
+                    }, 2000);
+                }
+            }, 600);
+        }
+
+        window.onload = updateLoading;
+    </script>
+</body>
+</html>
